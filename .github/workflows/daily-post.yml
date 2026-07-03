@@ -46,7 +46,7 @@ jobs:
           # Project metadata for post content
           PROJECT_NAME: ${{ vars.PROJECT_NAME || 'Smart Attendance' }}
           PROJECT_TAGLINE: ${{ vars.PROJECT_TAGLINE || 'Face Recognition Based Offline Attendance System' }}
-          POST_HASHTAGS: ${{ vars.POST_HASHTAGS || '#SmartAttendance #FaceRecognition #Flutter #AI #AttendanceSystem' }}
+          POST_HASHTAGS: "${{ vars.POST_HASHTAGS || '#SmartAttendance #FaceRecognition #Flutter #AI #AttendanceSystem' }}"
 
           # Google Gemini API key (optional — enables AI-generated varied content)
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
