@@ -35,6 +35,9 @@ const CONFIG = {
 
 /**
  * Reads repos.json and returns the list of repositories.
+ * Supports both formats:
+ *   { "owner": "...", "name": "..." }
+ *   { "url": "https://github.com/owner/name" }
  * Falls back to the single repo from .env if the file is missing or invalid.
  */
 function loadRepos() {
@@ -45,9 +48,29 @@ function loadRepos() {
       return [{ owner: CONFIG.github.owner, name: CONFIG.github.repo }];
     }
     const data = fs.readFileSync(reposPath, 'utf-8');
-    const repos = JSON.parse(data);
-    if (!Array.isArray(repos) || repos.length === 0) {
+    const raw = JSON.parse(data);
+    if (!Array.isArray(raw) || raw.length === 0) {
       console.warn('⚠️  repos.json is empty or invalid. Falling back to single repo from .env.');
+      return [{ owner: CONFIG.github.owner, name: CONFIG.github.repo }];
+    }
+
+    // Normalise each entry: support both { owner, name } and { url } formats
+    const repos = raw.map((entry) => {
+      // If it has a "url" field, parse owner/name from it
+      if (entry.url) {
+        const parsed = parseRepoUrl(entry.url);
+        if (parsed) return parsed;
+        console.warn(`⚠️  Could not parse URL: ${entry.url}. Skipping.`);
+        return null;
+      }
+      // Otherwise assume { owner, name }
+      if (entry.owner && entry.name) return { owner: entry.owner, name: entry.name };
+      console.warn(`⚠️  Invalid repo entry in repos.json: ${JSON.stringify(entry)}. Skipping.`);
+      return null;
+    }).filter(Boolean); // Remove any that failed to parse
+
+    if (repos.length === 0) {
+      console.warn('⚠️  No valid entries in repos.json. Falling back to single repo from .env.');
       return [{ owner: CONFIG.github.owner, name: CONFIG.github.repo }];
     }
     return repos;
@@ -56,6 +79,24 @@ function loadRepos() {
     console.warn('   Falling back to single repo from .env.');
     return [{ owner: CONFIG.github.owner, name: CONFIG.github.repo }];
   }
+}
+
+/**
+ * Parses a GitHub repo URL into { owner, name }.
+ * Accepts URLs like:
+ *   https://github.com/owner/name
+ *   https://github.com/owner/name.git
+ * @param {string} url - Full GitHub repository URL
+ * @returns {{ owner: string, name: string } | null}
+ */
+function parseRepoUrl(url) {
+  if (!url || typeof url !== 'string') return null;
+  const match = url.match(/github\.com\/([^/]+)\/([^/#?]+)/);
+  if (!match) return null;
+  return {
+    owner: match[1],
+    name: match[2].replace(/\.git$/, ''), // Strip optional .git suffix
+  };
 }
 
 /**
@@ -114,7 +155,7 @@ async function runDailyPost() {
       console.log(`   Stars: ${repoDetails.stargazers_count}`);
 
       console.log('\n✍️  Generating feature spotlight post...');
-      postText = generateFeaturePost(owner, repo, repoDetails);
+      postText = await generateFeaturePost(owner, repo, repoDetails);
     } else {
       // Update post — fetch recent commits
       console.log('\n📡 Fetching latest commits from GitHub...');
@@ -128,11 +169,11 @@ async function runDailyPost() {
         // No commits found — fall back to feature post for the same repo
         console.log(`\n⚠️  No commits found in last 24h, falling back to feature post for ${owner}/${repo}`);
         const repoDetails = await getRepoDetails(owner, repo);
-        postText = generateFeaturePost(owner, repo, repoDetails);
+        postText = await generateFeaturePost(owner, repo, repoDetails);
       } else {
         console.log(`   Found ${recentCommits.length} recent commit(s) in the last 24h.`);
         console.log('\n✍️  Generating update post...');
-        postText = generateUpdatePost(recentCommits, owner, repo);
+        postText = await generateUpdatePost(recentCommits, owner, repo);
       }
     }
 

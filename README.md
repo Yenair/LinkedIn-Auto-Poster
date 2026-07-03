@@ -59,7 +59,18 @@ To find it:
 - Your profile URL is `https://www.linkedin.com/in/your-name-abc123/`
 - The URN is the last part of your profile URL under the hood — use the token generator or API explorer to get it
 
-### 5. Get Your GitHub Token
+### 5. Get Your Google Gemini API Key (Optional — For AI-Generated Content)
+
+By default, posts are written from pre-built sentence templates (which can feel repetitive). For truly unique, randomised content every time, the script can use Google Gemini to generate each post from scratch.
+
+1. Go to [Google AI Studio](https://aistudio.google.com/app/apikey)
+2. Click **"Get API Key"** → **"Create API Key"**
+3. Copy the key and add it to your `.env` file as `GEMINI_API_KEY=your_key_here`
+4. That's it. The script auto-detects the key and uses Gemini when available, falling back to templates if the key is missing or the API call fails.
+
+> **Cost:** Gemini 1.5 Flash costs ~$0.0003 per post — about $0.01/month for daily posting. The free tier is generous enough for most use cases.
+
+### 6. Get Your GitHub Token
 
 1. Go to [GitHub Settings → Developer settings → Personal access tokens](https://github.com/settings/tokens)
 2. Click **"Generate new token (classic)"**
@@ -96,17 +107,25 @@ When running in GitHub Actions, the workflow triggers at **5:00 AM UTC** but pas
 
 ### Random Repository Selection
 
-Create a [`repos.json`](repos.json) file in the project root with an array of repositories:
+Create a [`repos.json`](repos.json) file in the project root with an array of repositories. You can use two formats:
 
+**Option A — Owner + Name (original):**
 ```json
 [
   {"owner": "Yenair", "name": "Smart-Attendance"},
-  {"owner": "Yenair", "name": "AnotherProject"},
-  {"owner": "YourName", "name": "ThirdProject"}
+  {"owner": "Yenair", "name": "AnotherProject"}
 ]
 ```
 
-Each day, the script randomly picks **one repository** from this list. If `repos.json` is missing, empty, or invalid, it falls back to the single repository defined in your `.env` file (`GITHUB_REPO_OWNER` / `GITHUB_REPO_NAME`).
+**Option B — Full GitHub URL (easier):**
+```json
+[
+  {"url": "https://github.com/Yenair/Smart-Attendance"},
+  {"url": "https://github.com/Yenair/classAI"}
+]
+```
+
+You can even mix both formats in the same file. Each day, the script randomly picks **one repository** from this list and fetches live data (commits, stars, topics) from the GitHub API. If `repos.json` is missing, empty, or invalid, it falls back to the single repository defined in your `.env` file (`GITHUB_REPO_OWNER` / `GITHUB_REPO_NAME`).
 
 ### Random Post Type
 
@@ -128,6 +147,27 @@ All posts are written in a **casual, first-person tone** — like you're sharing
 - Emojis used sparingly (2–3 max per post)
 - Ends with an engaging question to the reader
 - Includes a GitHub link with a simple call-to-action
+
+### AI-Generated Content (Gemini Integration)
+
+When a `GEMINI_API_KEY` is configured in `.env`, the script uses **Google Gemini 1.5 Flash** to write each post from scratch — producing truly unique phrasing, structure, and tone every time.
+
+**How it works:**
+1. Before generating a post, the script checks if Gemini is available
+2. If yes, it sends a structured prompt with the repo's data (description, stars, topics — or commit messages for update posts)
+3. Gemini returns a completely original post that avoids repetitive patterns
+4. If the Gemini call fails (network error, rate limit, etc.), the script silently **falls back to the template-based generator** — your posts never get skipped
+
+**Prompt rules enforced on every generation:**
+- Never uses "I've been working on", "If you haven't seen it before", "think of it", or similar repetitive openers
+- Varies the opening sentence structure each time
+- No hashtags, no headers, no titles
+- Ends with a natural engagement question
+- Keeps it under 200 words
+
+> **Tip:** You can toggle Gemini on/off simply by adding or removing the `GEMINI_API_KEY` from your `.env`. No code changes needed.
+
+> **Rate limits:** Gemini's free tier allows ~60 requests per minute and 1,500 requests per day (enough for daily posting). If you hit a 429 error, the script automatically falls back to templates — your posts won't be affected. The limit resets after a minute.
 
 ### Post Flow
 
@@ -161,5 +201,6 @@ Below is every value you need to replace in your [`.env`](.env.example) file:
 | 3 | `LINKEDIN_ACCESS_TOKEN` | [LinkedIn OAuth Token Generator](https://www.linkedin.com/developers/tools/oauth/token-generator) → scope: `w_member_social` | `your_linkedin_access_token_here` |
 | 4 | `LINKEDIN_USER_URN` | Your LinkedIn profile URN (format: `urn:li:person:xxxxx`) | `urn:li:person:your_linkedin_profile_id_here` |
 | 5 | `GITHUB_TOKEN` | [GitHub Personal Access Tokens](https://github.com/settings/tokens) → scope: `repo` | `your_github_personal_access_token_here` |
+| 6 | `GEMINI_API_KEY` | [Google AI Studio](https://aistudio.google.com/app/apikey) → Create API Key | *(optional — leave empty to use templates)* |
 
 > **Note:** Your `GITHUB_REPO_OWNER` and `GITHUB_REPO_NAME` are already set to `Yene` and `Smart-Attendance` respectively — no change needed unless your repo location changes. These are used as the fallback if `repos.json` is missing or empty.

@@ -48,6 +48,9 @@ jobs:
           PROJECT_TAGLINE: ${{ vars.PROJECT_TAGLINE || 'Face Recognition Based Offline Attendance System' }}
           POST_HASHTAGS: ${{ vars.POST_HASHTAGS || '#SmartAttendance #FaceRecognition #Flutter #AI #AttendanceSystem' }}
 
+          # Google Gemini API key (optional — enables AI-generated varied content)
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+
           # Image path (relative to repository root)
           PROJECT_LOGO_PATH: ${{ vars.PROJECT_LOGO_PATH || './assets/project-logo.png' }}
         run: node index.js --now --random
