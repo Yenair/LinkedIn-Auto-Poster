@@ -112,4 +112,33 @@ async function getRepoInfo(owner, repo, token) {
   }
 }
 
-module.exports = { getLatestCommits, getCommitDetails, getRepoInfo };
+/**
+ * Fetches repository metadata (description, topics, stars) from GitHub.
+ * @param {string} owner - Repository owner
+ * @param {string} repo - Repository name
+ * @returns {Promise<Object>} { description, topics, stargazers_count }
+ */
+async function getRepoDetails(owner, repo) {
+  const token = process.env.GITHUB_TOKEN;
+  try {
+    const response = await axios.get(
+      `https://api.github.com/repos/${owner}/${repo}`,
+      {
+        headers: {
+          Authorization: `token ${token}`,
+          Accept: 'application/vnd.github.v3+json',
+        },
+      }
+    );
+    return {
+      description: response.data.description || '',
+      topics: response.data.topics || [],
+      stargazers_count: response.data.stargazers_count || 0,
+    };
+  } catch (error) {
+    console.error('Error fetching repo details:', error.message);
+    return { description: '', topics: [], stargazers_count: 0 };
+  }
+}
+
+module.exports = { getLatestCommits, getCommitDetails, getRepoInfo, getRepoDetails };

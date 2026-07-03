@@ -1,8 +1,10 @@
 require('dotenv').config();
 const cron = require('node-cron');
-const { getLatestCommits, getRepoInfo } = require('./src/githubService');
+const fs = require('fs');
+const path = require('path');
+const { getLatestCommits, getRepoInfo, getRepoDetails } = require('./src/githubService');
 const { postToLinkedIn } = require('./src/linkedinService');
-const { generatePost } = require('./src/contentGenerator');
+const { generateFeaturePost, generateUpdatePost } = require('./src/contentGenerator');
 
 // =============================================
 // Configuration
@@ -27,6 +29,47 @@ const CONFIG = {
 };
 
 // =============================================
+// Repo Selection
+// =============================================
+
+/**
+ * Reads repos.json and returns the list of repositories.
+ * Falls back to the single repo from .env if the file is missing or invalid.
+ */
+function loadRepos() {
+  try {
+    const reposPath = path.join(__dirname, 'repos.json');
+    if (!fs.existsSync(reposPath)) {
+      console.warn('⚠️  repos.json not found. Falling back to single repo from .env.');
+      return [{ owner: CONFIG.github.owner, name: CONFIG.github.repo }];
+    }
+    const data = fs.readFileSync(reposPath, 'utf-8');
+    const repos = JSON.parse(data);
+    if (!Array.isArray(repos) || repos.length === 0) {
+      console.warn('⚠️  repos.json is empty or invalid. Falling back to single repo from .env.');
+      return [{ owner: CONFIG.github.owner, name: CONFIG.github.repo }];
+    }
+    return repos;
+  } catch (error) {
+    console.warn('⚠️  Failed to read repos.json:', error.message);
+    console.warn('   Falling back to single repo from .env.');
+    return [{ owner: CONFIG.github.owner, name: CONFIG.github.repo }];
+  }
+}
+
+/**
+ * Picks a random repository from the given list.
+ * @param {Array} repos - Array of { owner, name }
+ * @returns {Object} { owner, name }
+ */
+function pickRandomRepo(repos) {
+  if (!repos || repos.length === 0) {
+    return { owner: CONFIG.github.owner, name: CONFIG.github.repo };
+  }
+  return repos[Math.floor(Math.random() * repos.length)];
+}
+
+// =============================================
 // Main post function
 // =============================================
 async function runDailyPost() {
@@ -48,43 +91,55 @@ async function runDailyPost() {
   }
 
   try {
-    // Step 1: Fetch latest commits from GitHub
-    console.log('\n📡 Fetching latest commits from GitHub...');
-    const commits = await getLatestCommits(
-      CONFIG.github.owner,
-      CONFIG.github.repo,
-      CONFIG.github.token,
-      5
-    );
-    console.log(`   Found ${commits.length} recent commit(s).`);
+    // Step 1: Load repos and pick one randomly
+    const repos = loadRepos();
+    const selected = pickRandomRepo(repos);
+    const { owner, name: repo } = selected;
+    console.log(`\n🎲 Picked: ${owner}/${repo}`);
 
-    // Step 2: Fetch repository metadata
-    console.log('\n📦 Fetching repository metadata...');
-    const repoInfo = await getRepoInfo(
-      CONFIG.github.owner,
-      CONFIG.github.repo,
-      CONFIG.github.token
-    );
-    if (repoInfo) {
-      console.log(`   Language: ${repoInfo.language || 'N/A'}`);
-      console.log(`   Stars: ${repoInfo.stars}`);
+    // Step 2: Randomly decide post type (feature or update)
+    const postTypes = ['feature', 'update'];
+    let postType = postTypes[Math.floor(Math.random() * postTypes.length)];
+    console.log(`   Post type: ${postType}`);
+
+    let postText;
+
+    if (postType === 'feature') {
+      // Feature spotlight — fetch repo metadata and generate a feature post
+      console.log('\n📦 Fetching repository metadata for feature post...');
+      const repoDetails = await getRepoDetails(owner, repo);
+      console.log(`   Description: ${repoDetails.description || '(none)'}`);
+      console.log(`   Topics: ${repoDetails.topics.length > 0 ? repoDetails.topics.join(', ') : '(none)'}`);
+      console.log(`   Stars: ${repoDetails.stargazers_count}`);
+
+      console.log('\n✍️  Generating feature spotlight post...');
+      postText = generateFeaturePost(owner, repo, repoDetails);
+    } else {
+      // Update post — fetch recent commits
+      console.log('\n📡 Fetching latest commits from GitHub...');
+      const sinceDate = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      const commits = await getLatestCommits(owner, repo, CONFIG.github.token, 10);
+
+      // Filter to last 24 hours
+      const recentCommits = commits.filter((c) => new Date(c.date) >= new Date(sinceDate));
+
+      if (recentCommits.length === 0) {
+        // No commits found — fall back to feature post for the same repo
+        console.log(`\n⚠️  No commits found in last 24h, falling back to feature post for ${owner}/${repo}`);
+        const repoDetails = await getRepoDetails(owner, repo);
+        postText = generateFeaturePost(owner, repo, repoDetails);
+      } else {
+        console.log(`   Found ${recentCommits.length} recent commit(s) in the last 24h.`);
+        console.log('\n✍️  Generating update post...');
+        postText = generateUpdatePost(recentCommits, owner, repo);
+      }
     }
-
-    // Step 3: Generate post content
-    console.log('\n✍️  Generating post content...');
-    const postText = generatePost(commits, repoInfo, {
-      PROJECT_NAME: CONFIG.project.name,
-      PROJECT_TAGLINE: CONFIG.project.tagline,
-      POST_HASHTAGS: CONFIG.project.hashtags,
-      GITHUB_REPO_OWNER: CONFIG.github.owner,
-      GITHUB_REPO_NAME: CONFIG.github.repo,
-    });
 
     console.log('\n--- Generated Post Preview ---');
     console.log(postText);
     console.log('-----------------------------\n');
 
-    // Step 4: Post to LinkedIn
+    // Step 3: Post to LinkedIn
     console.log('📤 Publishing to LinkedIn...');
     const result = await postToLinkedIn(
       CONFIG.linkedin.accessToken,

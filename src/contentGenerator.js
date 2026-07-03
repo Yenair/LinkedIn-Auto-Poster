@@ -1,138 +1,187 @@
 /**
- * Generates engaging LinkedIn post text from commit data.
+ * Generates human-like conversational LinkedIn post content.
+ * No headers, no hashtags — just natural, engaging text.
  */
 
+const featureExamples = [
+  { tech: 'face recognition', analogy: 'like having a bouncer who remembers every face that\'s ever walked through the door' },
+  { tech: 'offline database', analogy: 'like a library that works even when the power\'s out' },
+  { tech: 'cross-platform', analogy: 'like writing once and having it magically work on every device you own' },
+  { tech: 'real-time sync', analogy: 'like having a telepathic connection between all your devices' },
+  { tech: 'biometric auth', analogy: 'like a fingerprint scanner that never gets fooled by a photo' },
+];
+
 /**
- * Formats a date string into a readable format.
+ * Picks a random item from an array.
  */
-function formatDate(dateString) {
-  const date = new Date(dateString);
-  return date.toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
+function pickRandom(arr) {
+  return arr[Math.floor(Math.random() * arr.length)];
 }
 
 /**
- * Determines the type of work from commit message keywords.
+ * Generates a feature-spotlight post for a given repository.
+ * @param {string} owner - GitHub owner
+ * @param {string} repo - GitHub repo name
+ * @param {Object} repoDetails - { description, topics, stargazers_count }
+ * @returns {string} Conversational post text
  */
-function classifyCommit(message) {
-  const lower = message.toLowerCase();
-  if (lower.startsWith('feat') || lower.includes('feature') || lower.includes('add')) {
-    return 'feature';
-  }
-  if (lower.startsWith('fix') || lower.includes('bug') || lower.includes('fix')) {
-    return 'fix';
-  }
-  if (lower.startsWith('refactor') || lower.includes('refactor')) {
-    return 'refactor';
-  }
-  if (lower.startsWith('docs') || lower.includes('readme') || lower.includes('doc')) {
-    return 'docs';
-  }
-  if (lower.startsWith('test') || lower.includes('test')) {
-    return 'test';
-  }
-  return 'update';
+function generateFeaturePost(owner, repo, repoDetails) {
+  const projectDisplay = repo.replace(/-/g, ' ');
+  const rawDescription = (repoDetails.description || pickRandom([
+    'a handy tool I built',
+    'something I\'ve been tinkering with',
+    'a project I\'ve been having fun with',
+    'a little tool I\'ve been building on the side',
+  ])).replace(/\.+$/, ''); // Remove trailing periods to avoid double punctuation
+  const topics = repoDetails.topics && repoDetails.topics.length > 0
+    ? repoDetails.topics.join(', ')
+    : null;
+  const stars = repoDetails.stargazers_count || 0;
+
+  const example = pickRandom(featureExamples);
+  const topicSnippet = topics
+    ? `It touches on a few areas I really enjoy — ${topics}.`
+    : '';
+
+  const starsLine = stars > 0
+    ? `\nIt's got ${stars} star${stars > 1 ? 's' : ''} on GitHub so far, which still feels surreal every time I check.\n`
+    : '\n';
+
+  const post = `I've been working on ${projectDisplay}, which is basically ${rawDescription.toLowerCase()}.
+
+If you haven't seen it before, think of it ${example.analogy}. That's the vibe I'm going for, anyway. ${topicSnippet}
+
+It's one of those projects that started as a "wouldn't it be cool if…" idea and slowly turned into something real. I've lost count of how many evenings I've spent tweaking little details, but honestly? Totally worth it.
+${starsLine}
+I'd love to hear — what's a project you've been pouring time into lately? Always looking for new ideas to steal 🙃
+
+Check it out here: https://github.com/${owner}/${repo}`;
+
+  return post;
 }
 
 /**
- * Generates a LinkedIn post based on the latest commits.
- * @param {Array} commits - List of commit objects from GitHub
- * @param {Object} repoInfo - Repository metadata
- * @param {Object} config - Project configuration from .env
- * @returns {string} Formatted post text
+ * Translates a commit message into a natural, conversational snippet.
  */
-function generatePost(commits, repoInfo, config) {
-  const projectName = config.PROJECT_NAME || 'Smart Attendance';
-  const tagline = config.PROJECT_TAGLINE || 'Face Recognition Based Offline Attendance System';
-  const hashtags = config.POST_HASHTAGS || '#SmartAttendance #FaceRecognition #Flutter #AI #AttendanceSystem';
+function describeCommit(commit) {
+  const msg = commit.message.toLowerCase();
 
-  if (!commits || commits.length === 0) {
-    return generateNoCommitsPost(projectName, tagline, hashtags);
+  if (msg.includes('fix') || msg.includes('bug')) {
+    const snippets = [
+      'tracked down a sneaky bug that had me questioning my life choices',
+      'finally squashed a bug that\'s been bothering me for a while',
+      'spent way too long debugging something that turned out to be a one-line fix',
+    ];
+    return pickRandom(snippets);
   }
+  if (msg.includes('feat') || msg.includes('add') || msg.includes('feature') || msg.includes('new')) {
+    const snippets = [
+      'added a new feature — honestly pretty excited about how this one turned out',
+      'got a new piece working, feels like a solid step forward',
+      'implemented something I\'ve been planning for ages, feels great to have it done',
+    ];
+    return pickRandom(snippets);
+  }
+  if (msg.includes('refactor') || msg.includes('clean') || msg.includes('improve')) {
+    const snippets = [
+      'did some long-overdue cleanup in the codebase, future me will thank me',
+      'refactored a chunk of code that was getting messy, much happier with it now',
+      'spent some time improving the architecture — it\'s one of those things you don\'t see but definitely feel',
+    ];
+    return pickRandom(snippets);
+  }
+  if (msg.includes('doc') || msg.includes('readme')) {
+    const snippets = [
+      'finally wrote some proper documentation — future contributors won\'t hate me anymore',
+      'updated the README with better instructions, should be easier for new folks to get started',
+    ];
+    return pickRandom(snippets);
+  }
+  if (msg.includes('test')) {
+    const snippets = [
+      'added more tests — because sleeping soundly is underrated',
+      'wrote some tests to cover edge cases I previously ignored (sorry, past me)',
+    ];
+    return pickRandom(snippets);
+  }
+  // Generic fallback
+  const snippets = [
+    'made some progress on things, nothing flashy but it all adds up',
+    'been chipping away at the to-do list, one commit at a time',
+    'pushed some changes that\'ll make sense in context',
+  ];
+  return pickRandom(snippets);
+}
 
-  // Classify commits
-  const categories = { feature: [], fix: [], refactor: [], docs: [], test: [], update: [] };
+/**
+ * Generates an update post from recent commits.
+ * @param {Array} commits - List of commit objects
+ * @param {string} owner - GitHub owner
+ * @param {string} repo - GitHub repo name
+ * @returns {string} Conversational post text
+ */
+function generateUpdatePost(commits, owner, repo) {
+  const projectDisplay = repo.replace(/-/g, ' ');
+  const count = commits.length;
+
+  // Group commits into meaningful themes by classifying them
+  const themes = { fixes: [], features: [], improvements: [], other: [] };
   commits.forEach((c) => {
-    const type = classifyCommit(c.message);
-    categories[type].push(c);
+    const msg = c.message.toLowerCase();
+    if (msg.includes('fix') || msg.includes('bug')) {
+      themes.fixes.push(c);
+    } else if (msg.includes('feat') || msg.includes('add') || msg.includes('feature') || msg.includes('new')) {
+      themes.features.push(c);
+    } else if (msg.includes('refactor') || msg.includes('clean') || msg.includes('improve') || msg.includes('test') || msg.includes('doc')) {
+      themes.improvements.push(c);
+    } else {
+      themes.other.push(c);
+    }
   });
 
-  const latestDate = commits[0] ? formatDate(commits[0].date) : 'today';
-  const commitCount = commits.length;
+  // Build the narrative conversationally
+  let storyParts = [];
 
-  let post = `🚀 ${projectName} — Daily Development Update\n\n`;
-  post += `${tagline}\n\n`;
-  post += `📅 Latest Activity: ${latestDate}\n`;
-  post += `📦 ${commitCount} commit${commitCount > 1 ? 's' : ''} pushed\n\n`;
+  if (themes.features.length > 0) {
+    const desc = describeCommit(themes.features[0]);
+    storyParts.push(desc);
+  }
 
-  // Feature updates
-  if (categories.feature.length > 0) {
-    post += `✨ **New Features:**\n`;
-    categories.feature.forEach((c) => {
-      post += `  • ${c.message} (${c.sha})\n`;
+  if (themes.fixes.length > 0) {
+    const desc = describeCommit(themes.fixes[0]);
+    storyParts.push(`While I was at it, I ${desc}`);
+  }
+
+  if (themes.improvements.length > 0) {
+    const desc = describeCommit(themes.improvements[0]);
+    storyParts.push(`Also ${desc}`);
+  }
+
+  if (themes.other.length > 0) {
+    // Pick a random generic description for remaining commits
+    themes.other.forEach(() => {
+      storyParts.push(pickRandom([
+        'a few other small bits and pieces got tidied up along the way',
+        'there were some miscellaneous updates that don\'t make for a great story but needed doing',
+      ]));
     });
-    post += '\n';
   }
 
-  // Bug fixes
-  if (categories.fix.length > 0) {
-    post += `🐛 **Bug Fixes:**\n`;
-    categories.fix.forEach((c) => {
-      post += `  • ${c.message} (${c.sha})\n`;
-    });
-    post += '\n';
-  }
+  // De-duplicate and limit to keep it readable
+  const uniqueParts = [...new Set(storyParts)];
+  const story = uniqueParts.slice(0, 4).join('. ') + '.';
 
-  // Refactors
-  if (categories.refactor.length > 0) {
-    post += `🔧 **Refactoring:**\n`;
-    categories.refactor.forEach((c) => {
-      post += `  • ${c.message} (${c.sha})\n`;
-    });
-    post += '\n';
-  }
+  const post = `I've been working on ${projectDisplay} and made about ${count} commit${count > 1 ? 's' : ''} recently.
 
-  // Other updates
-  const otherUpdates = [...categories.docs, ...categories.test, ...categories.update];
-  if (otherUpdates.length > 0) {
-    post += `📝 **Other Updates:**\n`;
-    otherUpdates.forEach((c) => {
-      post += `  • ${c.message} (${c.sha})\n`;
-    });
-    post += '\n';
-  }
+${story}
 
-  // Languages used
-  if (repoInfo && repoInfo.languages && repoInfo.languages.length > 0) {
-    post += `🛠️ Built with: ${repoInfo.languages.join(', ')}\n\n`;
-  }
+Some days it feels like I'm making slow progress, but looking back at what's changed, I'm pretty happy with where things are heading. There's something satisfying about seeing a project evolve one small step at a time.
 
-  post += `Building a robust offline attendance system with face recognition technology — no internet required!\n\n`;
-  post += `🔗 https://github.com/${config.GITHUB_REPO_OWNER}/${config.GITHUB_REPO_NAME}\n\n`;
-  post += `${hashtags}\n`;
+What have you been building or fixing lately? Always curious what everyone else is up to.
+
+Here's the link if you want to peek: https://github.com/${owner}/${repo}`;
 
   return post;
 }
 
-/**
- * Fallback post when there are no new commits.
- */
-function generateNoCommitsPost(projectName, tagline, hashtags) {
-  let post = `📌 ${projectName} — Project Spotlight\n\n`;
-  post += `${tagline}\n\n`;
-  post += `An offline-first attendance system built with Flutter, featuring:\n`;
-  post += `  ✅ Face recognition using TensorFlow Lite\n`;
-  post += `  ✅ Local SQLite database (no internet needed)\n`;
-  post += `  ✅ BlazeFace + MobileFaceNet for face detection & recognition\n`;
-  post += `  ✅ Cross-platform (Android, iOS, Windows, Linux, macOS)\n\n`;
-  post += `Proud to be building this as a practical solution for attendance tracking in areas with limited connectivity.\n\n`;
-  post += `🔗 https://github.com/Yene/Smart-Attendance\n\n`;
-  post += `${hashtags}\n`;
-
-  return post;
-}
-
-module.exports = { generatePost };
+module.exports = { generateFeaturePost, generateUpdatePost };
