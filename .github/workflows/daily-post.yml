@@ -2,7 +2,7 @@ name: Daily LinkedIn Post
 
 on:
   schedule:
-    - cron: '0 9 * * *'  # Runs daily at 9:00 AM UTC
+    - cron: '0 5 * * *'  # Runs daily at 5:00 AM UTC (~6:00 AM Nigeria time)
   workflow_dispatch:       # Allows manual trigger from GitHub UI
 
 jobs:
@@ -22,7 +22,7 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run LinkedIn auto-poster
+      - name: Run LinkedIn auto-poster (with random delay)
         env:
           # LinkedIn credentials (from GitHub Environment: Posting to Linkedin)
           LINKEDIN_CLIENT_ID: ${{ secrets.LINKEDIN_CLIENT_ID }}
@@ -39,6 +39,10 @@ jobs:
           # Post schedule (used for local dev; in CI it runs on the schedule trigger)
           POST_SCHEDULE: ${{ vars.POST_SCHEDULE || '0 9 * * *' }}
 
+          # Maximum random delay in minutes (default: 360 = 6h, so post can go out
+          # any time between 5:00 AM and 11:00 AM UTC)
+          RANDOM_MAX_DELAY_MINUTES: ${{ vars.RANDOM_MAX_DELAY_MINUTES || '360' }}
+
           # Project metadata for post content
           PROJECT_NAME: ${{ vars.PROJECT_NAME || 'Smart Attendance' }}
           PROJECT_TAGLINE: ${{ vars.PROJECT_TAGLINE || 'Face Recognition Based Offline Attendance System' }}
@@ -46,4 +50,4 @@ jobs:
 
           # Image path (relative to repository root)
           PROJECT_LOGO_PATH: ${{ vars.PROJECT_LOGO_PATH || './assets/project-logo.png' }}
-        run: node index.js --now
+        run: node index.js --now --random

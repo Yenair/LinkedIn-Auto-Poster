@@ -76,13 +76,21 @@ npm run dev
 
 This runs the script once with the `--now` flag.
 
-### Start the Scheduler (Runs Daily)
+### Start the Scheduler (Runs Daily — Local)
 
 ```bash
 npm start
 ```
 
 The script will post every day at **9:00 AM** by default. To change the schedule, update the `POST_SCHEDULE` variable in your `.env` file (cron format).
+
+### Random Post Time (GitHub Actions)
+
+When running in GitHub Actions, the workflow triggers at **5:00 AM UTC** but passes both `--now` and `--random` flags. The `--random` flag causes the script to sleep for a random duration (0-360 minutes by default) before posting, so the post goes out at a **different time each day**.
+
+- `RANDOM_MAX_DELAY_MINUTES` (default: `360`): Maximum random delay in minutes. With the default and the trigger at 5:00 AM UTC, posts appear anytime between 5:00 AM and 11:00 AM UTC.
+
+> **Note:** GitHub Actions has a **6-hour job execution limit**. The default 360-minute (6h) max delay ensures the job completes within this limit. You can reduce this value for a narrower posting window.
 
 ## 🎲 How It Works
 

@@ -26,6 +26,7 @@ const CONFIG = {
   },
   imagePath: process.env.PROJECT_LOGO_PATH || './assets/project-logo.png',
   schedule: process.env.POST_SCHEDULE || '0 9 * * *', // Default: daily at 9:00 AM
+  randomMaxDelay: parseInt(process.env.RANDOM_MAX_DELAY_MINUTES, 10) || 360, // Max random delay in minutes (default: 6h = 360min)
 };
 
 // =============================================
@@ -157,15 +158,49 @@ async function runDailyPost() {
 }
 
 // =============================================
+// Random delay helper
+// =============================================
+
+/**
+ * If the --random flag is passed, sleeps for a random duration
+ * between 0 and CONFIG.randomMaxDelay minutes.
+ * This makes posts go out at a different time each day.
+ */
+async function applyRandomDelay() {
+  const useRandom = process.argv.includes('--random');
+  if (!useRandom) return;
+
+  const maxMinutes = CONFIG.randomMaxDelay;
+  const delayMinutes = Math.floor(Math.random() * (maxMinutes + 1)); // 0..maxMinutes
+  const delayMs = delayMinutes * 60 * 1000;
+
+  // Compute approximate wall-clock time for logging
+  const targetTime = new Date(Date.now() + delayMs);
+  console.log(`🎲 Random delay enabled. Sleeping for ${delayMinutes} minute(s) (0–${maxMinutes} range).`);
+  console.log(`   Estimated post time: ${targetTime.toLocaleString()}`);
+
+  if (delayMinutes > 0) {
+    await new Promise((resolve) => setTimeout(resolve, delayMs));
+  }
+}
+
+// =============================================
 // Scheduling
 // =============================================
 
-// Check if --now flag was passed (for testing/dev)
+// Check if --now flag was passed (for testing/dev / CI run)
 const shouldRunNow = process.argv.includes('--now');
 
 if (shouldRunNow) {
-  console.log('🔧 Running in dev mode (--now flag detected)');
-  runDailyPost();
+  console.log('🔧 Running in CI / dev mode (--now flag detected)');
+
+  // If --random is also passed, apply a random delay first so the post
+  // goes out at a different time each day instead of a fixed clock time.
+  const run = async () => {
+    await applyRandomDelay();
+    await runDailyPost();
+  };
+  run().catch((err) => console.error('❌ Error during post execution:', err.message));
 } else {
   console.log(`⏰ Scheduler started. Will post daily at schedule: ${CONFIG.schedule}`);
   console.log('   Press Ctrl+C to stop.\n');
