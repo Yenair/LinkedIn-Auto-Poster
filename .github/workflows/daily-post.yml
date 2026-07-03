@@ -1,0 +1,49 @@
+name: Daily LinkedIn Post
+
+on:
+  schedule:
+    - cron: '0 9 * * *'  # Runs daily at 9:00 AM UTC
+  workflow_dispatch:       # Allows manual trigger from GitHub UI
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    environment: Posting to Linkedin
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run LinkedIn auto-poster
+        env:
+          # LinkedIn credentials (from GitHub Environment: Posting to Linkedin)
+          LINKEDIN_CLIENT_ID: ${{ secrets.LINKEDIN_CLIENT_ID }}
+          LINKEDIN_CLIENT_SECRET: ${{ secrets.LINKEDIN_CLIENT_SECRET }}
+          LINKEDIN_ACCESS_TOKEN: ${{ secrets.LINKEDIN_ACCESS_TOKEN }}
+          LINKEDIN_REFRESH_TOKEN: ${{ secrets.LINKEDIN_REFRESH_TOKEN }}
+          LINKEDIN_USER_URN: ${{ secrets.LINKEDIN_USER_URN }}
+
+          # GitHub credentials
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPO_OWNER: ${{ vars.GITHUB_REPO_OWNER || 'Yene' }}
+          GITHUB_REPO_NAME: ${{ vars.GITHUB_REPO_NAME || 'Smart-Attendance' }}
+
+          # Post schedule (used for local dev; in CI it runs on the schedule trigger)
+          POST_SCHEDULE: ${{ vars.POST_SCHEDULE || '0 9 * * *' }}
+
+          # Project metadata for post content
+          PROJECT_NAME: ${{ vars.PROJECT_NAME || 'Smart Attendance' }}
+          PROJECT_TAGLINE: ${{ vars.PROJECT_TAGLINE || 'Face Recognition Based Offline Attendance System' }}
+          POST_HASHTAGS: ${{ vars.POST_HASHTAGS || '#SmartAttendance #FaceRecognition #Flutter #AI #AttendanceSystem' }}
+
+          # Image path (relative to repository root)
+          PROJECT_LOGO_PATH: ${{ vars.PROJECT_LOGO_PATH || './assets/project-logo.png' }}
+        run: node index.js --now
