@@ -3,9 +3,41 @@
  * Uses DeepSeek AI for varied, AI-generated posts.
  * No fallback to templates — if the AI call fails, an error is thrown.
  * No headers, no hashtags — just natural, engaging text.
+ *
+ * Context-aware:
+ * - Detects whether the repo is owned by the user or contributed to
+ * - Detects repos that should use past tense (completed projects)
  */
 
 const axios = require('axios');
+
+// ---------------------------------------------------------------------------
+// Repo classification helpers
+// ---------------------------------------------------------------------------
+
+/** GitHub usernames that the user owns (not contributed to). */
+const OWNED_ACCOUNTS = ['Yenair'];
+
+/** Repo names (lowercase) that should use past tense (completed projects). */
+const PAST_TENSE_REPOS = ['hostel-election-mph-uniuyo-2023', 'hostel-election-mph-uniuyo'];
+
+/**
+ * Returns true if the given owner is a contributor project (not owned by the user).
+ * @param {string} owner - GitHub owner / org
+ * @returns {boolean}
+ */
+function isContributorRepo(owner) {
+  return !OWNED_ACCOUNTS.includes(owner);
+}
+
+/**
+ * Returns true if the repo should be written in past tense.
+ * @param {string} repo - Repository name
+ * @returns {boolean}
+ */
+function isPastTenseRepo(repo) {
+  return PAST_TENSE_REPOS.includes(repo.toLowerCase());
+}
 
 // ---------------------------------------------------------------------------
 // AI Provider initialisation
@@ -93,8 +125,16 @@ async function deepseekGenerate(prompt) {
 
 /**
  * Builds the prompt for a feature-spotlight post.
+ *
+ * @param {string} owner - GitHub owner
+ * @param {string} repo - GitHub repo name
+ * @param {Object} repoDetails - { description, topics, stargazers_count }
+ * @param {Object} [context] - Optional context flags
+ * @param {boolean} [context.isContributor] - Whether this repo was contributed to
+ * @param {boolean} [context.isPastTense] - Whether to write in past tense
+ * @returns {string} The AI prompt
  */
-function buildFeaturePrompt(owner, repo, repoDetails) {
+function buildFeaturePrompt(owner, repo, repoDetails, context = {}) {
   const projectDisplay = repo.replace(/-/g, ' ');
   const description = repoDetails.description || 'a handy tool';
   const topics =
@@ -103,6 +143,20 @@ function buildFeaturePrompt(owner, repo, repoDetails) {
       : 'N/A';
   const stars = repoDetails.stargazers_count || 0;
   const url = `https://github.com/${owner}/${repo}`;
+
+  // Build posture / relationship instructions based on context
+  let relationshipRule = '';
+  let tenseRule = '';
+
+  if (context.isContributor) {
+    relationshipRule = `- IMPORTANT: This project is NOT yours — you are a contributor to it. Make this clear in the post (e.g. "I contributed to...", "I helped build...", "I was added as a contributor to..."). Do NOT imply you own it.`;
+  } else {
+    relationshipRule = `- This is your own project that you built and maintain.`;
+  }
+
+  if (context.isPastTense) {
+    tenseRule = `- Write entirely in PAST TENSE. This project is completed, you built it in the past. Use phrases like "I built", "I created", "it was designed to", etc.`;
+  }
 
   return `You are a real software developer sharing an open-source project on LinkedIn.
 
@@ -115,29 +169,53 @@ Write a LinkedIn post about "${projectDisplay}".
 - GitHub URL: ${url}
 
 **Rules — follow them exactly:**
-- Write in a casual, first-person, human voice, like you're telling a friend what you've been working on
+- Write in a casual, first-person, human voice, like you're telling a friend about the project
 - Use very basic, simple grammar — short sentences, plain words, like a real person chatting
 - Use proper paragraph breaks: add a blank line BETWEEN each paragraph (do not compact them)
 - NEVER use any of these phrases: "I've been working on", "If you haven't seen it before", "think of it", "It's one of those projects that started as", "I've lost count"
 - Vary the opening every time, start differently each call
 - NO hashtags whatsoever
 - NO em dashes (—) anywhere in the post, use commas or periods instead
-- NO headers, NO titles, NO "🚀" or similar intro emojis
+- NO headers, NO titles, NO intro emojis
 - 2-4 short paragraphs (2-3 sentences each)
 - Mention one specific aspect or challenge you found interesting about the project
 - Only sometimes end with a question, not every time — vary it
 - Include the GitHub URL naturally toward the end
-- Keep it under 200 words`;
+- Keep it under 200 words
+${relationshipRule}
+${tenseRule}`;
 }
 
 /**
  * Builds the prompt for an update post from recent commits.
+ *
+ * @param {Array} commits - List of commit objects
+ * @param {string} owner - GitHub owner
+ * @param {string} repo - GitHub repo name
+ * @param {Object} [context] - Optional context flags
+ * @param {boolean} [context.isContributor] - Whether this repo was contributed to
+ * @param {boolean} [context.isPastTense] - Whether to write in past tense
+ * @returns {string} The AI prompt
  */
-function buildUpdatePrompt(commits, owner, repo) {
+function buildUpdatePrompt(commits, owner, repo, context = {}) {
   const projectDisplay = repo.replace(/-/g, ' ');
   const count = commits.length;
   const commitMessages = commits.map((c) => c.message).join('\n');
   const url = `https://github.com/${owner}/${repo}`;
+
+  // Build posture / relationship instructions based on context
+  let relationshipRule = '';
+  let tenseRule = '';
+
+  if (context.isContributor) {
+    relationshipRule = `- IMPORTANT: This project is NOT yours — you are a contributor. Make this clear in the post. Do NOT imply you own it.`;
+  } else {
+    relationshipRule = `- This is your own project.`;
+  }
+
+  if (context.isPastTense) {
+    tenseRule = `- Write entirely in PAST TENSE. This project is completed — you worked on it in the past.`;
+  }
 
   return `You are a real software developer sharing a progress update on LinkedIn.
 
@@ -158,7 +236,9 @@ ${commitMessages}
 - 2-3 short paragraphs
 - Include the GitHub URL naturally
 - Only sometimes end with a question, not every time — vary it
-- Keep it under 180 words`;
+- Keep it under 180 words
+${relationshipRule}
+${tenseRule}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -167,7 +247,7 @@ ${commitMessages}
 
 /**
  * Generates a feature-spotlight post for a given repository.
- * Uses the configured AI provider (Gemini or DeepSeek).
+ * Uses the configured AI provider.
  * Throws on failure — no template fallback.
  * @param {string} owner - GitHub owner
  * @param {string} repo - GitHub repo name
@@ -175,7 +255,11 @@ ${commitMessages}
  * @returns {Promise<string>} Conversational post text
  */
 async function generateFeaturePost(owner, repo, repoDetails) {
-  const prompt = buildFeaturePrompt(owner, repo, repoDetails);
+  const context = {
+    isContributor: isContributorRepo(owner),
+    isPastTense: isPastTenseRepo(repo),
+  };
+  const prompt = buildFeaturePrompt(owner, repo, repoDetails, context);
   const text = await callAI(prompt);
 
   // Ensure the GitHub URL is present in the output
@@ -188,7 +272,7 @@ async function generateFeaturePost(owner, repo, repoDetails) {
 
 /**
  * Generates an update post from recent commits.
- * Uses the configured AI provider (Gemini or DeepSeek).
+ * Uses the configured AI provider.
  * Throws on failure — no template fallback.
  * @param {Array} commits - List of commit objects
  * @param {string} owner - GitHub owner
@@ -196,7 +280,11 @@ async function generateFeaturePost(owner, repo, repoDetails) {
  * @returns {Promise<string>} Conversational post text
  */
 async function generateUpdatePost(commits, owner, repo) {
-  const prompt = buildUpdatePrompt(commits, owner, repo);
+  const context = {
+    isContributor: isContributorRepo(owner),
+    isPastTense: isPastTenseRepo(repo),
+  };
+  const prompt = buildUpdatePrompt(commits, owner, repo, context);
   const text = await callAI(prompt);
 
   // Ensure the GitHub URL is present in the output
