@@ -41,7 +41,7 @@ jobs:
 
           # Maximum random delay in minutes (default: 360 = 6h, so post can go out
           # any time between 5:00 AM and 11:00 AM UTC)
-          RANDOM_MAX_DELAY_MINUTES: ${{ vars.RANDOM_MAX_DELAY_MINUTES || '360' }}
+          RANDOM_MAX_DELAY_MINUTES: ${{ vars.RANDOM_MAX_DELAY_MINUTES || '0' }}
 
           # Project metadata for post content
           PROJECT_NAME: ${{ vars.PROJECT_NAME || 'Smart Attendance' }}
