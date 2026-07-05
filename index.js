@@ -26,7 +26,7 @@ const CONFIG = {
   },
   imagePath: process.env.PROJECT_LOGO_PATH || './assets/project-logo.png',
   schedule: process.env.POST_SCHEDULE || '0 9 * * *', // Default: daily at 9:00 AM
-  randomMaxDelay: parseInt(process.env.RANDOM_MAX_DELAY_MINUTES, 10) || 360, // Max random delay in minutes (default: 6h = 360min)
+  randomMaxDelay: process.env.RANDOM_MAX_DELAY_MINUTES ? parseInt(process.env.RANDOM_MAX_DELAY_MINUTES, 10) : 360, // Max random delay in minutes (default: 6h = 360min)
 };
 
 // =============================================
