@@ -39,17 +39,16 @@ jobs:
           # Post schedule (used for local dev; in CI it runs on the schedule trigger)
           POST_SCHEDULE: ${{ vars.POST_SCHEDULE || '0 9 * * *' }}
 
-          # Maximum random delay in minutes (default: 360 = 6h, so post can go out
-          # any time between 5:00 AM and 11:00 AM UTC)
-          RANDOM_MAX_DELAY_MINUTES: ${{ vars.RANDOM_MAX_DELAY_MINUTES || '360' }}
+          # Maximum random delay in minutes (default: 0 = post immediately on trigger)
+          RANDOM_MAX_DELAY_MINUTES: ${{ vars.RANDOM_MAX_DELAY_MINUTES || '0' }}
 
           # Project metadata for post content
           PROJECT_NAME: ${{ vars.PROJECT_NAME || 'Smart Attendance' }}
           PROJECT_TAGLINE: ${{ vars.PROJECT_TAGLINE || 'Face Recognition Based Offline Attendance System' }}
           POST_HASHTAGS: "${{ vars.POST_HASHTAGS || '#SmartAttendance #FaceRecognition #Flutter #AI #AttendanceSystem' }}"
 
-          # Google Gemini API key (optional — enables AI-generated varied content)
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          # DeepSeek API key (required — for AI-generated post content)
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
 
           # Image path (relative to repository root)
           PROJECT_LOGO_PATH: ${{ vars.PROJECT_LOGO_PATH || './assets/project-logo.png' }}

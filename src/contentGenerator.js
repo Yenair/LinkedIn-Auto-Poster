@@ -1,77 +1,39 @@
 /**
  * Generates human-like conversational LinkedIn post content.
- * Uses either Google Gemini or DeepSeek AI for varied, AI-generated posts.
+ * Uses DeepSeek AI for varied, AI-generated posts.
  * No fallback to templates — if the AI call fails, an error is thrown.
  * No headers, no hashtags — just natural, engaging text.
  */
 
-const { GoogleGenerativeAI } = require('@google/generative-ai');
 const axios = require('axios');
 
 // ---------------------------------------------------------------------------
-// AI Provider configuration
+// AI Provider initialisation
 // ---------------------------------------------------------------------------
-const AI_PROVIDER = (process.env.AI_PROVIDER || 'gemini').toLowerCase();
-
-let genAI = null;
-let geminiModel = null;
 
 function initAI() {
-  if (AI_PROVIDER === 'deepseek') {
-    const apiKey = process.env.DEEPSEEK_API_KEY;
-    if (!apiKey) {
-      throw new Error(
-        'DEEPSEEK_API_KEY is not set in .env.\n' +
-        '   Add DEEPSEEK_API_KEY=your_key to use DeepSeek, or switch AI_PROVIDER=gemini.'
-      );
-    }
-    console.log('🤖 AI Provider: DeepSeek');
-    return true;
-  }
-
-  // Default: Gemini
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey = process.env.DEEPSEEK_API_KEY;
   if (!apiKey) {
     throw new Error(
-      'GEMINI_API_KEY is not set in .env.\n' +
-      '   Get a free key at https://aistudio.google.com/app/apikey'
+      'DEEPSEEK_API_KEY is not set in .env.\n' +
+      '   Add DEEPSEEK_API_KEY=your_key to use DeepSeek.'
     );
   }
-
-  try {
-    genAI = new GoogleGenerativeAI(apiKey);
-    geminiModel = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
-    console.log('🤖 AI Provider: Gemini (gemini-2.0-flash)');
-    return true;
-  } catch (err) {
-    throw new Error(`Failed to initialise Gemini: ${err.message}`);
-  }
+  console.log('🤖 AI Provider: DeepSeek');
+  return true;
 }
 
 // ---------------------------------------------------------------------------
-// AI call routing
+// AI call
 // ---------------------------------------------------------------------------
 
 /**
- * Routes a content-generation prompt to the configured AI provider.
+ * Generates content using the DeepSeek API.
  * @param {string} prompt - The prompt to send
  * @returns {Promise<string>} Generated text
  */
 async function callAI(prompt) {
-  if (AI_PROVIDER === 'deepseek') {
-    return await deepseekGenerate(prompt);
-  }
-
-  // Gemini
-  if (!geminiModel) {
-    throw new Error('Gemini model is not initialised. Check your GEMINI_API_KEY.');
-  }
-  const result = await geminiModel.generateContent(prompt);
-  const text = result.response.text().trim();
-  if (!text || text.length < 50) {
-    throw new Error('Gemini returned empty or too short content');
-  }
-  return text;
+  return await deepseekGenerate(prompt);
 }
 
 // ---------------------------------------------------------------------------
