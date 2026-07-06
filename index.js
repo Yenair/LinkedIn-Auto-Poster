@@ -111,6 +111,36 @@ function pickRandomRepo(repos) {
   return repos[Math.floor(Math.random() * repos.length)];
 }
 
+/**
+ * Checks all repos for commits within the last N hours.
+ * Returns only repos that have had recent activity.
+ * @param {Array} repos - Array of { owner, name }
+ * @param {string} token - GitHub Personal Access Token
+ * @param {number} hours - Look-back window (default 24)
+ * @returns {Promise<Array>} Active repos with their recent commits
+ */
+async function findReposWithRecentActivity(repos, token, hours = 24) {
+  const sinceDate = new Date(Date.now() - hours * 60 * 60 * 1000);
+  const activeRepos = [];
+
+  for (const repo of repos) {
+    try {
+      const commits = await getLatestCommits(repo.owner, repo.name, token, 5);
+      const recentCommits = commits.filter((c) => new Date(c.date) >= sinceDate);
+      if (recentCommits.length > 0) {
+        console.log(`   ✅ ${repo.owner}/${repo.name}: ${recentCommits.length} recent commit(s)`);
+        activeRepos.push({ owner: repo.owner, name: repo.name, commits: recentCommits });
+      } else {
+        console.log(`   ⏳ ${repo.owner}/${repo.name}: no recent activity`);
+      }
+    } catch (err) {
+      console.warn(`   ⚠️  Could not check ${repo.owner}/${repo.name}: ${err.message}`);
+    }
+  }
+
+  return activeRepos;
+}
+
 // =============================================
 // Main post function
 // =============================================
@@ -133,21 +163,33 @@ async function runDailyPost() {
   }
 
   try {
-    // Step 1: Load repos and pick one randomly
+    // Step 1: Load repos
     const repos = loadRepos();
-    const selected = pickRandomRepo(repos);
-    const { owner, name: repo } = selected;
-    console.log(`\n🎲 Picked: ${owner}/${repo}`);
+    console.log(`\n📋 Loaded ${repos.length} repositor(ies) from repos.json`);
 
-    // Step 2: Randomly decide post type (feature or update)
-    const postTypes = ['feature', 'update'];
-    let postType = postTypes[Math.floor(Math.random() * postTypes.length)];
-    console.log(`   Post type: ${postType}`);
+    // Step 2: Check ALL repos for commits in the last 24 hours — priority logic
+    console.log('\n🔍 Checking all repos for recent activity (last 24h)...');
+    const activeRepos = await findReposWithRecentActivity(repos, CONFIG.github.token);
 
-    let postText;
+    let owner, repo, postText;
 
-    if (postType === 'feature') {
-      // Feature spotlight — fetch repo metadata and generate a feature post
+    if (activeRepos.length > 0) {
+      // PRIORITY: Repos with recent commits — pick one randomly and make an update post
+      const selected = pickRandomRepo(activeRepos);
+      owner = selected.owner;
+      repo = selected.name;
+      const recentCommits = selected.commits;
+      console.log(`\n🎯 Priority: recent commits found! Picked ${owner}/${repo} with ${recentCommits.length} commit(s)`);
+
+      console.log('\n✍️  Generating update post...');
+      postText = await generateUpdatePost(recentCommits, owner, repo);
+    } else {
+      // NO recent activity — pick a random repo and do a feature spotlight
+      const selected = pickRandomRepo(repos);
+      owner = selected.owner;
+      repo = selected.name;
+      console.log(`\n📭 No recent activity across any repo. Picked random repo: ${owner}/${repo} for feature spotlight`);
+
       console.log('\n📦 Fetching repository metadata for feature post...');
       const repoDetails = await getRepoDetails(owner, repo);
       console.log(`   Description: ${repoDetails.description || '(none)'}`);
@@ -156,25 +198,6 @@ async function runDailyPost() {
 
       console.log('\n✍️  Generating feature spotlight post...');
       postText = await generateFeaturePost(owner, repo, repoDetails);
-    } else {
-      // Update post — fetch recent commits
-      console.log('\n📡 Fetching latest commits from GitHub...');
-      const sinceDate = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-      const commits = await getLatestCommits(owner, repo, CONFIG.github.token, 10);
-
-      // Filter to last 24 hours
-      const recentCommits = commits.filter((c) => new Date(c.date) >= new Date(sinceDate));
-
-      if (recentCommits.length === 0) {
-        // No commits found — fall back to feature post for the same repo
-        console.log(`\n⚠️  No commits found in last 24h, falling back to feature post for ${owner}/${repo}`);
-        const repoDetails = await getRepoDetails(owner, repo);
-        postText = await generateFeaturePost(owner, repo, repoDetails);
-      } else {
-        console.log(`   Found ${recentCommits.length} recent commit(s) in the last 24h.`);
-        console.log('\n✍️  Generating update post...');
-        postText = await generateUpdatePost(recentCommits, owner, repo);
-      }
     }
 
     console.log('\n--- Generated Post Preview ---');
