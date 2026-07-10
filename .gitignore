@@ -1,7 +1,6 @@
 node_modules/
 .env
 .env.example
-assets/project-logo.png
 *.log
 # Uncomment the next line if you want to keep your repo list private:
 # repos.json

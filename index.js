@@ -16,6 +16,7 @@ const CONFIG = {
   },
   github: {
     token: process.env.GITHUB_TOKEN,
+    pat: process.env.GH_PAT, // Optional PAT with 'repo' scope for private repos
     owner: process.env.GITHUB_REPO_OWNER || 'Yene',
     repo: process.env.GITHUB_REPO_NAME || 'Smart-Attendance',
   },
@@ -185,13 +186,31 @@ async function runDailyPost() {
       postText = await generateUpdatePost(recentCommits, owner, repo);
     } else {
       // NO recent activity — pick a random repo and do a feature spotlight
-      const selected = pickRandomRepo(repos);
+      // Iterate through shuffled repos until we find one that exists (non-404)
+      const shuffled = [...repos].sort(() => Math.random() - 0.5);
+      let repoDetails = null;
+      let selected = null;
+      for (const candidate of shuffled) {
+        console.log(`\n📦 Trying ${candidate.owner}/${candidate.name} for feature spotlight...`);
+        repoDetails = await getRepoDetails(candidate.owner, candidate.name);
+        if (repoDetails.description || repoDetails.stargazers_count > 0) {
+          selected = candidate;
+          console.log(`   ✅ Found valid repo: ${selected.owner}/${selected.name}`);
+          break;
+        }
+        console.log(`   ⏩ ${candidate.owner}/${candidate.name} not found, trying next...`);
+      }
+
+      // Fallback if ALL repos failed — use the first repo from env config
+      if (!selected) {
+        selected = { owner: CONFIG.github.owner, name: CONFIG.github.repo };
+        console.log(`\n⚠️  No valid repos found. Falling back to ${selected.owner}/${selected.name}`);
+        repoDetails = await getRepoDetails(selected.owner, selected.name);
+      }
+
       owner = selected.owner;
       repo = selected.name;
-      console.log(`\n📭 No recent activity across any repo. Picked random repo: ${owner}/${repo} for feature spotlight`);
-
-      console.log('\n📦 Fetching repository metadata for feature post...');
-      const repoDetails = await getRepoDetails(owner, repo);
+      console.log(`\n📦 Repository metadata for feature post:`);
       console.log(`   Description: ${repoDetails.description || '(none)'}`);
       console.log(`   Topics: ${repoDetails.topics.length > 0 ? repoDetails.topics.join(', ') : '(none)'}`);
       console.log(`   Stars: ${repoDetails.stargazers_count}`);

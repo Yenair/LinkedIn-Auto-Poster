@@ -32,7 +32,12 @@ jobs:
           LINKEDIN_USER_URN: ${{ secrets.LINKEDIN_USER_URN }}
 
           # GitHub credentials
+          # GITHUB_TOKEN (auto-generated) works for public repos only.
+          # For private repos, create a classic PAT with 'repo' scope at
+          # https://github.com/settings/tokens and add it as GH_PAT secret.
+          # If GH_PAT is set, it will be used as a fallback for private repos.
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_PAT: ${{ secrets.GH_PAT }}
           GITHUB_REPO_OWNER: ${{ vars.GITHUB_REPO_OWNER || 'Yene' }}
           GITHUB_REPO_NAME: ${{ vars.GITHUB_REPO_NAME || 'Smart-Attendance' }}
 
