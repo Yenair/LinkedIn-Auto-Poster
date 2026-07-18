@@ -2,7 +2,7 @@ name: Daily LinkedIn Post
 
 on:
   schedule:
-    - cron: '0 5 * * *'  # Runs daily at 5:00 AM UTC (~6:00 AM Nigeria time)
+    - cron: '0 6 * * *'  # Runs daily at 6:00 AM UTC (~7:00 AM Nigeria time)
   workflow_dispatch:       # Allows manual trigger from GitHub UI
 
 jobs:
@@ -45,7 +45,7 @@ jobs:
           POST_SCHEDULE: ${{ vars.POST_SCHEDULE || '0 9 * * *' }}
 
           # Maximum random delay in minutes (default: 0 = post immediately on trigger)
-          RANDOM_MAX_DELAY_MINUTES: ${{ vars.RANDOM_MAX_DELAY_MINUTES || '120' }}
+          RANDOM_MAX_DELAY_MINUTES: ${{ vars.RANDOM_MAX_DELAY_MINUTES || '240' }}
 
           # Project metadata for post content
           PROJECT_NAME: ${{ vars.PROJECT_NAME || 'Smart Attendance' }}
