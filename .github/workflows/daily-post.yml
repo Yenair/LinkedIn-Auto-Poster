@@ -45,7 +45,7 @@ jobs:
           POST_SCHEDULE: ${{ vars.POST_SCHEDULE || '0 9 * * *' }}
 
           # Maximum random delay in minutes (default: 0 = post immediately on trigger)
-          RANDOM_MAX_DELAY_MINUTES: ${{ vars.RANDOM_MAX_DELAY_MINUTES || '0' }}
+          RANDOM_MAX_DELAY_MINUTES: ${{ vars.RANDOM_MAX_DELAY_MINUTES || '120' }}
 
           # Project metadata for post content
           PROJECT_NAME: ${{ vars.PROJECT_NAME || 'Smart Attendance' }}
